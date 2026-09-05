@@ -7,25 +7,15 @@ import numpy as np
 import pyaudio
 import sherpa_onnx
 
-def tijdtekst(uur, minuut):
-    volgend_uur = (uur + 1) % 24
+def tijdtekst(uur, minuut, seconde):
+    minuut_eenheid = "minuut" if minuut == 1 else "minuten"
+    seconde_eenheid = "seconde" if seconde == 1 else "seconden"
 
-    if minuut == 0:
-        return f"Het is {uur} uur."
-    if minuut == 15:
-        return f"Het is kwart over {uur}."
-    if minuut == 30:
-        return f"Het is half {volgend_uur}."
-    if minuut == 45:
-        return f"Het is kwart voor {volgend_uur}."
-    if minuut < 15:
-        return f"Het is {minuut} over {uur}."
-    if minuut < 30:
-        return f"Het is {30 - minuut} voor half {volgend_uur}."
-    if minuut < 45:
-        return f"Het is {minuut - 30} over half {volgend_uur}."
-    return f"Het is {60 - minuut} voor {volgend_uur}."
-
+    return (
+        f"Bij de volgende toon is het {uur} uur, "
+        f"{minuut} {minuut_eenheid} en "
+        f"{seconde} {seconde_eenheid}."
+    )
 
 MODEL = "sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20"
 RATE = 16000
@@ -48,10 +38,36 @@ stream = kws.create_stream()
 
 p = pyaudio.PyAudio()
 
-device_index = next(
-    i for i in range(p.get_device_count())
+input_devices = [
+    (i, p.get_device_info_by_index(i))
+    for i in range(p.get_device_count())
     if p.get_device_info_by_index(i)["maxInputChannels"] > 0
-    and p.get_device_info_by_index(i)["name"].lower() == "pulse"
+]
+
+device_index = next(
+    (
+        i for i, info in input_devices
+        if "respeaker lite" in info["name"].lower()
+    ),
+    next(
+        (
+            i for i, info in input_devices
+            if info["name"].lower() == "pulse"
+        ),
+        None,
+    ),
+)
+
+if device_index is None:
+    names = "\n".join(
+        f"{i}: {info['name']}"
+        for i, info in input_devices
+    )
+    raise RuntimeError(f"Geen geschikte microfoon gevonden:\n{names}")
+
+print(
+    "Microfoon:",
+    p.get_device_info_by_index(device_index)["name"],
 )
 
 mic = p.open(
@@ -89,7 +105,7 @@ try:
                 last_trigger = time.monotonic()
 
                 now = datetime.now()
-                tekst = tijdtekst(now.hour, now.minute)
+                tekst = tijdtekst(now.hour, now.minute, now.second)
 
                 print(f"\n{result}: {tekst}")
 
