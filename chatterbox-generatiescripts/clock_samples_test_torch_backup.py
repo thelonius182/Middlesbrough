@@ -2,7 +2,8 @@ from datetime import datetime, timedelta
 import time
 import winsound
 
-import wave
+import torch
+import torchaudio as ta
 
 from clock_engine import volgende_tien_seconden_grens, sample_paths
 
@@ -18,8 +19,8 @@ BEEP_DURATION_MS = 250
 
 
 def maak_bericht(paths):
-    frames = []
-    params = None
+    clips = []
+    sample_rate = None
 
     for path in paths:
         if not path.exists():
@@ -27,59 +28,43 @@ def maak_bericht(paths):
                 f"Sample ontbreekt: {path}"
             )
 
-        with wave.open(str(path), "rb") as wav_file:
-            huidige_params = (
-                wav_file.getnchannels(),
-                wav_file.getsampwidth(),
-                wav_file.getframerate(),
+        wav, sr = ta.load(path)
+
+        if sample_rate is None:
+            sample_rate = sr
+        elif sr != sample_rate:
+            raise ValueError(
+                f"Afwijkende sample rate: {path}"
             )
 
-            if params is None:
-                params = huidige_params
-            elif huidige_params != params:
-                raise ValueError(
-                    f"Afwijkend WAV-formaat: {path}"
-                )
+        clips.append(wav)
 
-            frames.append(
-                wav_file.readframes(
-                    wav_file.getnframes()
-                )
-            )
-
-    channels, sample_width, sample_rate = params
-
-    stilte_frames = int(
-        sample_rate * PAUZE_TUSSEN_DELEN
-    )
-
-    stilte = b"\x00" * (
-        stilte_frames
-        * channels
-        * sample_width
+    stilte = torch.zeros(
+        1,
+        int(sample_rate * PAUZE_TUSSEN_DELEN),
     )
 
     onderdelen = []
 
-    for i, clip in enumerate(frames):
+    for i, clip in enumerate(clips):
         if i > 0:
             onderdelen.append(stilte)
 
         onderdelen.append(clip)
 
-    audio = b"".join(onderdelen)
-
-    with wave.open(OUTPUT, "wb") as wav_file:
-        wav_file.setnchannels(channels)
-        wav_file.setsampwidth(sample_width)
-        wav_file.setframerate(sample_rate)
-        wav_file.writeframes(audio)
-
-    frame_count = len(audio) // (
-        channels * sample_width
+    wav = torch.cat(
+        onderdelen,
+        dim=-1,
     )
 
-    return frame_count / sample_rate
+    ta.save(
+        OUTPUT,
+        wav,
+        sample_rate,
+    )
+
+    return wav.shape[-1] / sample_rate
+
 
 def wacht_tot(tijdstip):
     while True:
