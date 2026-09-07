@@ -1,6 +1,24 @@
 # Installatie op Raspberry Pi
 
-## 1. Systeempakketten
+## 1. Project en KWS-model kopiëren
+
+Kopieer de projectmap vanaf de Ubuntu-VM naar de Raspberry Pi.
+
+De volgende modelmap staat niet in Git en moet expliciet worden meegekopieerd:
+
+```text
+sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/
+```
+
+Het archiefbestand:
+
+```text
+sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20.tar.bz2
+```
+
+is niet nodig op de Raspberry Pi.
+
+## 2. Systeempakketten
 
 ```bash
 sudo apt update
@@ -11,7 +29,7 @@ sudo apt install -y \
   alsa-utils
 ```
 
-## 2. Python-omgeving
+## 3. Python-omgeving
 
 ```bash
 python3 -m venv .venv
@@ -19,7 +37,7 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-## 3. Audio controleren
+## 4. Audio controleren
 
 Microfoons en opname-apparaten:
 
@@ -40,7 +58,7 @@ arecord -f S16_LE -r 16000 -c 1 -d 5 /tmp/mic-test.wav
 aplay /tmp/mic-test.wav
 ```
 
-## 4. Runtime testen
+## 5. Runtime testen
 
 ```bash
 .venv/bin/python test_linux_runtime.py
@@ -48,7 +66,7 @@ aplay /tmp/mic-test.wav
 
 Hierbij worden op de Raspberry Pi de audiostartlatentie en het volume van de eindpiep beoordeeld.
 
-## 5. Sprekende klok starten
+## 6. Sprekende klok starten
 
 ```bash
 .venv/bin/python sprekende_klok.py
